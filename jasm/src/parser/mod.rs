@@ -314,8 +314,8 @@ impl JasmParser {
     fn parse_method(&mut self) -> Result<(), ParserError> {
         let dot_method = self.next_token()?; // consume .method token
         let _access_flags = self.parse_method_access_flags()?;
-        let method_name = self
-            .expect_next_identifier(IdentifierContext::MethodDirectiveName, dot_method.span.end)?;
+        let method_name =
+            self.expect_next_identifier(IdentifierContext::MethodName, dot_method.span.end)?;
         let method_descriptor = self.expect_next_method_descriptor(
             MethodDescriptorContext::MethodDirective,
             self.last_span.end,

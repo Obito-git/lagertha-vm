@@ -9,6 +9,7 @@ mod instruction;
 mod lexer;
 mod parser;
 mod token;
+mod utils;
 mod warning;
 
 fn get_filename_and_contents_from_arg() -> (String, String) {
