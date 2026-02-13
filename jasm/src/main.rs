@@ -7,6 +7,7 @@ mod instruction;
 mod lexer;
 mod parser;
 mod token;
+mod warning;
 
 fn get_filename_and_contents_from_arg() -> (String, String) {
     let args: Vec<String> = std::env::args().collect();
@@ -26,7 +27,7 @@ fn main() {
     let (filename, contents) = get_filename_and_contents_from_arg();
     let mut lexer = JasmLexer::new(&contents);
 
-    let tokens = match lexer.tokenize().map_err(JasmError::from) {
+    let tokens = match lexer.tokenize() {
         Ok(tokens) => tokens,
         Err(err) => {
             err.print(&filename, &contents);
@@ -34,7 +35,7 @@ fn main() {
         }
     };
 
-    let ast = match parser::JasmParser::parse(tokens).map_err(JasmError::from) {
+    let ast = match parser::JasmParser::parse(tokens) {
         Ok(ast) => ast,
         Err(err) => {
             err.print(&filename, &contents);
