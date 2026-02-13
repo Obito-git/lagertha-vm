@@ -149,7 +149,7 @@ impl JasmParser {
     fn parse_super_directive(&mut self) -> Result<(), ParserError> {
         let dot_super = self.next_token()?; // consume .super token
         let (super_name, super_name_span) =
-            self.expect_next_identifier(IdentifierContext::SuperDirective, dot_super.span.end)?;
+            self.expect_next_identifier(IdentifierContext::SuperName, dot_super.span.end)?;
         self.set_super_name(SuperName {
             name: super_name,
             directive_span: dot_super.span,
@@ -362,7 +362,7 @@ impl JasmParser {
         let _access_flags = self.parse_class_access_flags()?;
 
         let (class_name, _) =
-            self.expect_next_identifier(IdentifierContext::ClassDirective, self.last_span.end)?;
+            self.expect_next_identifier(IdentifierContext::ClassName, self.last_span.end)?;
 
         // TODO: test EOF right after class name and check for correct span in error
         self.expect_no_trailing_tokens(TrailingTokensContext::Class)?;
