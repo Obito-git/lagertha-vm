@@ -4,21 +4,21 @@ use std::ops::Range;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct JasmWarning {
     message: String,
-    range: Option<Range<usize>>,
-    note: Option<String>,
-    label: Option<String>,
+    primary_location: Range<usize>,
+    label: Vec<(Range<usize>, String)>,
+    note: String,
 }
 
 impl JasmWarning {
     pub fn new(
         message: impl Into<String>,
-        range: Option<Range<usize>>,
-        note: Option<String>,
-        label: Option<String>,
+        primary_location: Range<usize>,
+        label: Vec<(Range<usize>, String)>,
+        note: String,
     ) -> Self {
         Self {
             message: message.into(),
-            range,
+            primary_location,
             note,
             label,
         }
@@ -28,15 +28,15 @@ impl JasmWarning {
         &self.message
     }
 
-    pub fn range(&self) -> Option<&Range<usize>> {
-        self.range.as_ref()
+    pub fn primary_location(&self) -> &Range<usize> {
+        &self.primary_location
     }
 
-    pub fn note(&self) -> Option<&str> {
-        self.note.as_deref()
+    pub fn note(&self) -> &str {
+        self.note.as_str()
     }
 
-    pub fn label(&self) -> Option<&str> {
-        self.label.as_deref()
+    pub fn labels(&self) -> &Vec<(Range<usize>, String)> {
+        &self.label
     }
 }

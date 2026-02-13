@@ -5,6 +5,7 @@ use crate::parser::error::{
     TrailingTokensContext,
 };
 use crate::token::{JasmToken, JasmTokenKind, Span};
+use crate::warning::JasmWarning;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
@@ -12,9 +13,12 @@ mod error;
 #[cfg(test)]
 mod tests;
 
+const JAVA_LANG_OBJECT: &str = "java/lang/Object";
+
 pub struct JasmParser {
     tokens: Peekable<IntoIter<JasmToken>>,
     last_span: Span,
+    warnings: Vec<JasmWarning>,
 
     super_name: Vec<SuperName>,
 }
@@ -379,7 +383,7 @@ impl JasmParser {
         Ok(())
     }
 
-    pub fn parse(tokens: Vec<JasmToken>) -> Result<(), JasmError> {
+    pub fn parse(tokens: Vec<JasmToken>) -> Result<Vec<JasmWarning>, JasmError> {
         if !matches!(tokens.last().unwrap().kind, JasmTokenKind::Eof) {
             return Err(ParserError::Internal(
                 "Token stream must end with an EOF token".to_string(),
@@ -390,14 +394,47 @@ impl JasmParser {
         let mut instance = Self {
             tokens: tokens.into_iter().peekable(),
             last_span: Span::new(0, 0),
+            warnings: Vec::new(),
             super_name: Vec::new(),
         };
 
         instance.parse_class()?;
-        instance.build_jasm_class().map_err(Into::into)
+        instance.build_jasm_class()?;
+        Ok(instance.warnings)
     }
 
-    fn build_jasm_class(&self) -> Result<(), ParserError> {
+    fn build_jasm_class(&mut self) -> Result<(), ParserError> {
+        let super_name = {
+            if self.super_name.is_empty() {
+                JAVA_LANG_OBJECT.to_string()
+            } else if self.super_name.len() == 1 {
+                self.super_name[0].name.clone()
+            } else {
+                let definitions_count = self.super_name.len();
+                let message = "Multiple .super directives found".to_string();
+                let primary_location = self.super_name[0].directive_span.as_range();
+                let taken_super_name = &self.super_name[definitions_count - 1];
+                let labels = self
+                    .super_name
+                    .iter()
+                    .map(|v| {
+                        (
+                            v.directive_span.start..v.identifier_span.end,
+                            "Defined here".to_string(),
+                        )
+                    })
+                    .collect::<Vec<_>>();
+
+                let note = format!(
+                    "The last .super directive will be used: '{}'",
+                    taken_super_name.name
+                );
+                self.warnings
+                    .push(JasmWarning::new(message, primary_location, labels, note));
+
+                taken_super_name.name.clone()
+            }
+        };
         Ok(())
     }
 }
