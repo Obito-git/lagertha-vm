@@ -13,16 +13,16 @@ pub(super) enum LexerError {
 }
 
 impl LexerError {
-    pub fn message(&self) -> Option<String> {
-        let msg = match self {
+    pub fn message(&self) -> String {
+        match self {
             LexerError::UnexpectedChar(_, _, _) => "unexpected character",
             LexerError::UnknownDirective(_, _) => "unknown directive",
             LexerError::UnexpectedEof(_) => "unexpected end of file",
             LexerError::UnterminatedString(_) => "unterminated string literal",
             LexerError::InvalidEscape(_, _) => "invalid escape sequence",
             LexerError::InvalidNumber(_, _) => "invalid integer",
-        };
-        Some(msg.to_string())
+        }
+        .to_string()
     }
 
     pub fn note(&self) -> Option<String> {
@@ -54,12 +54,8 @@ impl LexerError {
         Some(note)
     }
 
-    pub fn as_range(&self) -> Option<Range<usize>> {
-        self.span().map(|s| s.as_range())
-    }
-
-    pub fn label(&self) -> Option<String> {
-        let res = match self {
+    pub fn labels(&self) -> Vec<(Range<usize>, String)> {
+        let msg = match self {
             LexerError::UnexpectedChar(_, c, _) => {
                 format!("found '{}' here", c.escape_default())
             }
@@ -99,17 +95,17 @@ impl LexerError {
                 }
             }
         };
-        Some(res)
+        vec![(self.primary_location(), msg)]
     }
 
-    fn span(&self) -> Option<&Span> {
+    fn primary_location(&self) -> Range<usize> {
         match self {
             LexerError::UnexpectedChar(span, _, _)
             | LexerError::UnknownDirective(span, _)
             | LexerError::UnexpectedEof(span)
             | LexerError::UnterminatedString(span)
             | LexerError::InvalidEscape(span, _)
-            | LexerError::InvalidNumber(span, _) => Some(span),
+            | LexerError::InvalidNumber(span, _) => span.as_range(),
         }
     }
 }
@@ -117,10 +113,10 @@ impl LexerError {
 impl From<LexerError> for JasmError {
     fn from(err: LexerError) -> Self {
         JasmError::Diagnostic(JasmDiagnostic::new(
-            err.message().unwrap_or("lexing error".to_string()),
-            err.as_range(),
+            err.message(),
+            err.primary_location(),
+            err.labels(),
             err.note(),
-            err.label(),
         ))
     }
 }

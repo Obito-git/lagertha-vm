@@ -9,7 +9,7 @@ pub enum JasmError {
 
 impl JasmError {
     fn print_diagnostic_error(filename: &str, source_code: &str, err: JasmDiagnostic) {
-        let range = err.range().cloned().unwrap_or(0..0);
+        let range = err.primary_location();
         let mut report =
             Report::build(ReportKind::Error, (filename, range.clone())).with_message(err.message());
 
@@ -17,10 +17,10 @@ impl JasmError {
             report = report.with_note(note);
         }
 
-        if let Some(label) = err.label() {
+        for (label_range, label_message) in err.labels() {
             report = report.with_label(
-                Label::new((filename, range))
-                    .with_message(label)
+                Label::new((filename, label_range.clone()))
+                    .with_message(label_message)
                     .with_color(Color::Red),
             );
         }
@@ -61,21 +61,21 @@ impl JasmError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct JasmDiagnostic {
     message: String,
-    range: Option<Range<usize>>,
+    primary_location: Range<usize>,
+    label: Vec<(Range<usize>, String)>,
     note: Option<String>,
-    label: Option<String>,
 }
 
 impl JasmDiagnostic {
     pub fn new(
         message: impl Into<String>,
-        range: Option<Range<usize>>,
+        primary_location: Range<usize>,
+        label: Vec<(Range<usize>, String)>,
         note: Option<String>,
-        label: Option<String>,
     ) -> Self {
         Self {
             message: message.into(),
-            range,
+            primary_location,
             note,
             label,
         }
@@ -85,16 +85,16 @@ impl JasmDiagnostic {
         &self.message
     }
 
-    pub fn range(&self) -> Option<&Range<usize>> {
-        self.range.as_ref()
+    pub fn primary_location(&self) -> &Range<usize> {
+        &self.primary_location
     }
 
     pub fn note(&self) -> Option<&str> {
         self.note.as_deref()
     }
 
-    pub fn label(&self) -> Option<&str> {
-        self.label.as_deref()
+    pub fn labels(&self) -> &Vec<(Range<usize>, String)> {
+        &self.label
     }
 }
 
