@@ -6,6 +6,7 @@ use crate::parser::error::{
 };
 use crate::parser::warning::ParserWarning;
 use crate::token::{JasmToken, JasmTokenKind, Span};
+use jclass::prelude::ConstantPoolBuilder;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
@@ -22,6 +23,7 @@ pub struct JasmParser {
 
     warnings: Vec<Box<dyn Diagnostic>>,
 
+    cp_builder: ConstantPoolBuilder,
     name: String,
     class_directive_pos: Span,
     super_name: Option<SuperDirective>,
@@ -218,7 +220,7 @@ impl JasmParser {
         }
     }
 
-    fn parse_instruction(&mut self) -> Result<(), ParserError> {
+    fn parse_instruction(&mut self, code: &mut Vec<u8>) -> Result<(), ParserError> {
         let (instruction_name, _) =
             self.expect_next_identifier(IdentifierContext::InstructionName, self.last_span.end)?;
         let instruction_pos = self.last_span;
@@ -227,6 +229,7 @@ impl JasmParser {
             .ok_or_else(|| {
                 ParserError::UnknownInstruction(instruction_pos, instruction_name.clone())
             })?;
+        code.push(instruction_spec.opcode as u8);
         for arg_spec in instruction_spec.args {
             match arg_spec {
                 InstructionArgKind::ClassName => {
@@ -283,6 +286,7 @@ impl JasmParser {
         let mut stack = None;
         let mut locals = None;
         self.next_token()?; // consume .code token
+        let mut code = Vec::with_capacity(16); // TODO: find a better initial capacity
 
         while let Some(JasmTokenKind::Identifier(_)) = self.peek_token_kind() {
             let identifier_token = self.next_token()?;
@@ -314,7 +318,7 @@ impl JasmParser {
             if matches!(token.kind, JasmTokenKind::DotEnd | JasmTokenKind::Eof) {
                 break;
             }
-            self.parse_instruction()?;
+            self.parse_instruction(&mut code)?;
             self.skip_newlines()?
         }
 
@@ -428,6 +432,7 @@ impl JasmParser {
             super_name: None,
             name: String::new(),
             class_directive_pos: Span::new(0, 0),
+            cp_builder: ConstantPoolBuilder::new(),
         };
 
         instance.parse_class()?;
