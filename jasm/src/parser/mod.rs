@@ -1,5 +1,5 @@
 use crate::diagnostic::{Diagnostic, JasmError};
-use crate::instruction::{InstructionArgKind, INSTRUCTION_SPECS};
+use crate::instruction::{INSTRUCTION_SPECS, InstructionArgKind};
 use crate::parser::error::{
     IdentifierContext, MethodDescriptorContext, MultipleDefinitionContext,
     NonNegativeIntegerContext, ParserError, TrailingTokensContext,
@@ -41,17 +41,24 @@ struct SuperDirective {
 }
 
 impl JasmParser {
-    fn set_super_name(&mut self, super_name: SuperDirective) -> Result<(), ParserError> {
+    fn set_super_name(&mut self, dir: SuperDirective) -> Result<(), ParserError> {
         if let Some(exiting) = self.super_name.take() {
-            Err(ParserError::MultipleDefinitions(
-                MultipleDefinitionContext::SuperClass {
-                    first_definition: exiting,
-                    second_definition: super_name,
-                },
-            ))?;
-        } else {
-            self.super_name = Some(super_name);
+            if exiting.class_name == dir.class_name {
+                self.warnings
+                    .push(Box::new(ParserWarning::SameSuperDefinedMultipleTimes {
+                        first_occurrence: exiting,
+                        second_occurrence: dir.clone(),
+                    }));
+            } else {
+                return Err(ParserError::MultipleDefinitions(
+                    MultipleDefinitionContext::SuperClass {
+                        first_definition: exiting,
+                        second_definition: dir,
+                    },
+                ));
+            }
         }
+        self.super_name = Some(dir);
         Ok(())
     }
 

@@ -277,12 +277,19 @@ impl ParserError {
                     second_definition,
                 } => vec![
                     DiagnosticLabel::context(
-                        first_definition.directive_span.as_range(),
-                        "first .super definition here",
+                        first_definition.identifier_span.as_range(),
+                        format!(
+                            "superclass was first defined as '{}'",
+                            first_definition.class_name
+                        ),
                     ),
                     DiagnosticLabel::at(
-                        second_definition.directive_span.as_range(),
-                        "duplicate definition here",
+                        second_definition.directive_span.start
+                            ..second_definition.identifier_span.end,
+                        format!(
+                            "attempted to redefine as '{}'",
+                            second_definition.class_name
+                        ),
                     ),
                 ],
             },
@@ -442,7 +449,7 @@ impl ParserError {
             ParserError::Internal(_) => None,
             ParserError::MultipleDefinitions(context) => match context {
                 MultipleDefinitionContext::SuperClass { .. } => Some(
-                    "A class can only inherit from one superclass.\nIf you meant to implement multiple interfaces, use '.implements'.".to_string(),
+                    "Java classes do not support multiple inheritance.\nA class can only have one parent.".to_string(),
                 ),
             },
         }
