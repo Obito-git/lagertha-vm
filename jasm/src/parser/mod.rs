@@ -1,12 +1,11 @@
-use crate::error::JasmError;
-use crate::instruction::{INSTRUCTION_SPECS, InstructionArgKind};
+use crate::diagnostic::{Diagnostic, JasmError};
+use crate::instruction::{InstructionArgKind, INSTRUCTION_SPECS};
 use crate::parser::error::{
     IdentifierContext, MethodDescriptorContext, MultipleDefinitionContext,
     NonNegativeIntegerContext, ParserError, TrailingTokensContext,
 };
 use crate::parser::warning::ParserWarning;
 use crate::token::{JasmToken, JasmTokenKind, Span};
-use crate::warning::JasmWarning;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
@@ -21,7 +20,7 @@ pub struct JasmParser {
     tokens: Peekable<IntoIter<JasmToken>>,
     last_span: Span,
 
-    warnings: Vec<JasmWarning>,
+    warnings: Vec<Box<dyn Diagnostic>>,
 
     name: String,
     class_directive_pos: Span,
@@ -407,7 +406,7 @@ impl JasmParser {
         Ok(())
     }
 
-    pub fn parse(tokens: Vec<JasmToken>) -> Result<Vec<JasmWarning>, JasmError> {
+    pub fn parse(tokens: Vec<JasmToken>) -> Result<Vec<Box<dyn Diagnostic>>, JasmError> {
         if !matches!(tokens.last().unwrap().kind, JasmTokenKind::Eof) {
             return Err(ParserError::Internal(
                 "Token stream must end with an EOF token".to_string(),
@@ -430,18 +429,16 @@ impl JasmParser {
     }
 
     fn build_jasm_class(&mut self) -> Result<(), ParserError> {
-        let super_name = {
+        let _super_name = {
             if let Some(super_name) = self.super_name.take() {
                 super_name.class_name
             } else {
-                self.warnings.push(
-                    ParserWarning::MissingSuperClass {
+                self.warnings
+                    .push(Box::new(ParserWarning::MissingSuperClass {
                         class_name: self.name.clone(),
                         class_directive_pos: self.class_directive_pos,
                         default: JAVA_LANG_OBJECT,
-                    }
-                    .into(),
-                );
+                    }));
                 JAVA_LANG_OBJECT.to_string()
             }
         };

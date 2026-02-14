@@ -1,4 +1,4 @@
-use crate::error::{JasmDiagnostic, JasmError};
+use crate::diagnostic::{Diagnostic, JasmError, Severity};
 use crate::token::{JasmTokenKind, Span};
 use std::ops::Range;
 
@@ -13,7 +13,7 @@ pub(super) enum LexerError {
 }
 
 impl LexerError {
-    pub fn message(&self) -> String {
+    fn get_message(&self) -> String {
         match self {
             LexerError::UnexpectedChar(_, _, _) => "unexpected character",
             LexerError::UnknownDirective(_, _) => "unknown directive",
@@ -25,7 +25,7 @@ impl LexerError {
         .to_string()
     }
 
-    pub fn note(&self) -> Option<String> {
+    fn get_note(&self) -> Option<String> {
         let note = match self {
             LexerError::UnexpectedEof(_) => format!(
                 "Expected one of the directives: {}",
@@ -54,7 +54,7 @@ impl LexerError {
         Some(note)
     }
 
-    pub fn labels(&self) -> Vec<(Range<usize>, String)> {
+    fn get_labels(&self) -> Vec<(Range<usize>, String)> {
         let msg = match self {
             LexerError::UnexpectedChar(_, c, _) => {
                 format!("found '{}' here", c.escape_default())
@@ -95,10 +95,10 @@ impl LexerError {
                 }
             }
         };
-        vec![(self.primary_location(), msg)]
+        vec![(self.get_primary_location(), msg)]
     }
 
-    fn primary_location(&self) -> Range<usize> {
+    fn get_primary_location(&self) -> Range<usize> {
         match self {
             LexerError::UnexpectedChar(span, _, _)
             | LexerError::UnknownDirective(span, _)
@@ -110,13 +110,30 @@ impl LexerError {
     }
 }
 
+impl Diagnostic for LexerError {
+    fn message(&self) -> String {
+        self.get_message()
+    }
+
+    fn primary_location(&self) -> Range<usize> {
+        self.get_primary_location()
+    }
+
+    fn labels(&self) -> Vec<(Range<usize>, String)> {
+        self.get_labels()
+    }
+
+    fn note(&self) -> Option<String> {
+        self.get_note()
+    }
+
+    fn severity(&self) -> Severity {
+        Severity::Error
+    }
+}
+
 impl From<LexerError> for JasmError {
     fn from(err: LexerError) -> Self {
-        JasmError::Diagnostic(JasmDiagnostic::new(
-            err.message(),
-            err.primary_location(),
-            err.labels(),
-            err.note(),
-        ))
+        JasmError::Diagnostic(Box::new(err))
     }
 }

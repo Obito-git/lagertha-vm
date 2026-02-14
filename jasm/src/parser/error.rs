@@ -1,4 +1,4 @@
-use crate::error::{JasmDiagnostic, JasmError};
+use crate::diagnostic::{Diagnostic, JasmError, Severity};
 use crate::instruction::INSTRUCTION_SPECS;
 use crate::parser::SuperDirective;
 use crate::token::{JasmToken, JasmTokenKind, Span};
@@ -65,7 +65,7 @@ pub(super) enum MethodDescriptorContext {
 }
 
 impl ParserError {
-    fn message(&self) -> String {
+    fn get_message(&self) -> String {
         match self {
             ParserError::ClassDirectiveExpected(_, token) => format!(
                 "unexpected {} before class definition",
@@ -145,11 +145,11 @@ impl ParserError {
         }
     }
 
-    fn labels(&self) -> Vec<(Range<usize>, String)> {
+    fn get_labels(&self) -> Vec<(Range<usize>, String)> {
         match self {
             ParserError::TrailingTokens(tokens, context) => {
                 vec![(
-                    self.primary_location(),
+                    self.get_primary_location(),
                     match context {
                         TrailingTokensContext::Class => {
                             let first_token_kind = &tokens[0].kind;
@@ -184,7 +184,7 @@ impl ParserError {
             }
             ParserError::ClassDirectiveExpected(_, token) => {
                 vec![(
-                    self.primary_location(),
+                    self.get_primary_location(),
                     match token {
                         JasmTokenKind::DotMethod | JasmTokenKind::DotSuper => {
                             format!("'{}' is only allowed inside a class definition", token)
@@ -205,7 +205,7 @@ impl ParserError {
             }
             ParserError::IdentifierExpected(_, token, context) => {
                 vec![(
-                    self.primary_location(),
+                    self.get_primary_location(),
                     match context {
                         IdentifierContext::ClassName => match token {
                             JasmTokenKind::Newline | JasmTokenKind::Eof => {
@@ -241,17 +241,17 @@ impl ParserError {
                 )]
             }
             ParserError::MethodDescriptorExpected(_, token, _) => vec![(
-                self.primary_location(),
+                self.get_primary_location(),
                 format!("expected a method descriptor, but found '{}'", token),
             )],
             ParserError::UnexpectedCodeDirectiveArg(_, token) => {
                 vec![(
-                    self.primary_location(),
+                    self.get_primary_location(),
                     format!("'{}' is not a valid argument for '.code'", token),
                 )]
             }
             ParserError::NonNegativeIntegerExpected(_, token, _) => vec![(
-                self.primary_location(),
+                self.get_primary_location(),
                 format!("expected a non-negative integer, found '{}'", token),
             )],
             ParserError::UnknownInstruction(_, name) => {
@@ -266,7 +266,7 @@ impl ParserError {
                 }
 
                 vec![(
-                    self.primary_location(),
+                    self.get_primary_location(),
                     if let Some(suggestion) = closest {
                         format!("did you mean '{}'?", suggestion)
                     } else {
@@ -277,7 +277,7 @@ impl ParserError {
             ParserError::Internal(_) => vec![],
             ParserError::EmptyFile(_) => {
                 vec![(
-                    self.primary_location(),
+                    self.get_primary_location(),
                     "the file is empty or contains only comments".to_string(),
                 )]
             }
@@ -299,7 +299,7 @@ impl ParserError {
         }
     }
 
-    fn note(&self) -> Option<String> {
+    fn get_note(&self) -> Option<String> {
         match self {
             ParserError::ClassDirectiveExpected(_, token) => match token {
                 JasmTokenKind::DotMethod | JasmTokenKind::DotSuper => {
@@ -458,7 +458,7 @@ impl ParserError {
         }
     }
 
-    fn primary_location(&self) -> Range<usize> {
+    fn get_primary_location(&self) -> Range<usize> {
         match self {
             ParserError::ClassDirectiveExpected(span, _)
             | ParserError::EmptyFile(span)
@@ -480,16 +480,33 @@ impl ParserError {
     }
 }
 
+impl Diagnostic for ParserError {
+    fn message(&self) -> String {
+        self.get_message()
+    }
+
+    fn primary_location(&self) -> Range<usize> {
+        self.get_primary_location()
+    }
+
+    fn labels(&self) -> Vec<(Range<usize>, String)> {
+        self.get_labels()
+    }
+
+    fn note(&self) -> Option<String> {
+        self.get_note()
+    }
+
+    fn severity(&self) -> Severity {
+        Severity::Error
+    }
+}
+
 impl From<ParserError> for JasmError {
     fn from(err: ParserError) -> Self {
         match err {
             ParserError::Internal(msg) => JasmError::Internal(msg),
-            _ => JasmError::Diagnostic(JasmDiagnostic::new(
-                err.message(),
-                err.primary_location(),
-                err.labels(),
-                err.note(),
-            )),
+            _ => JasmError::Diagnostic(Box::new(err)),
         }
     }
 }
