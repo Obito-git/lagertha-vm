@@ -1,4 +1,4 @@
-use crate::diagnostic::{Diagnostic, Severity};
+use crate::diagnostic::{Diagnostic, DiagnosticLabel, Severity};
 use crate::token::Span;
 use std::ops::Range;
 
@@ -18,13 +18,13 @@ impl ParserWarning {
         }
     }
 
-    fn get_labels(&self) -> Vec<(Range<usize>, String)> {
+    fn get_labels(&self) -> Vec<DiagnosticLabel> {
         match self {
             ParserWarning::MissingSuperClass {
                 class_directive_pos,
                 class_name,
                 ..
-            } => vec![(
+            } => vec![DiagnosticLabel::at(
                 class_directive_pos.as_range(),
                 format!("Class {} is missing a superclass directive", class_name),
             )],
@@ -59,15 +59,15 @@ impl Diagnostic for ParserWarning {
         self.get_primary_location()
     }
 
-    fn labels(&self) -> Vec<(Range<usize>, String)> {
-        self.get_labels()
-    }
-
     fn note(&self) -> Option<String> {
         self.get_note()
     }
 
     fn severity(&self) -> Severity {
         Severity::Warning
+    }
+
+    fn labels(&self) -> Vec<DiagnosticLabel> {
+        self.get_labels()
     }
 }

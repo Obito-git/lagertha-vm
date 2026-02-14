@@ -1,4 +1,4 @@
-use crate::diagnostic::{Diagnostic, JasmError, Severity};
+use crate::diagnostic::{Diagnostic, DiagnosticLabel, JasmError, Severity};
 use crate::token::{JasmTokenKind, Span};
 use std::ops::Range;
 
@@ -54,7 +54,7 @@ impl LexerError {
         Some(note)
     }
 
-    fn get_labels(&self) -> Vec<(Range<usize>, String)> {
+    fn get_labels(&self) -> Vec<DiagnosticLabel> {
         let msg = match self {
             LexerError::UnexpectedChar(_, c, _) => {
                 format!("found '{}' here", c.escape_default())
@@ -72,7 +72,7 @@ impl LexerError {
                 }
 
                 if let Some(suggestion) = closest {
-                    format!("did you mean '{}'?", suggestion)
+                    format!("did you mean '{}' ?", suggestion)
                 } else {
                     "unknown directive".to_string()
                 }
@@ -95,7 +95,7 @@ impl LexerError {
                 }
             }
         };
-        vec![(self.get_primary_location(), msg)]
+        vec![DiagnosticLabel::at(self.get_primary_location(), msg)]
     }
 
     fn get_primary_location(&self) -> Range<usize> {
@@ -119,16 +119,16 @@ impl Diagnostic for LexerError {
         self.get_primary_location()
     }
 
-    fn labels(&self) -> Vec<(Range<usize>, String)> {
-        self.get_labels()
-    }
-
     fn note(&self) -> Option<String> {
         self.get_note()
     }
 
     fn severity(&self) -> Severity {
         Severity::Error
+    }
+
+    fn labels(&self) -> Vec<DiagnosticLabel> {
+        self.get_labels()
     }
 }
 

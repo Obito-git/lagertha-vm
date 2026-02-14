@@ -1,4 +1,4 @@
-use crate::diagnostic::{Diagnostic, JasmError, Severity};
+use crate::diagnostic::{Diagnostic, DiagnosticLabel, JasmError, Severity};
 use crate::instruction::INSTRUCTION_SPECS;
 use crate::parser::SuperDirective;
 use crate::token::{JasmToken, JasmTokenKind, Span};
@@ -145,112 +145,104 @@ impl ParserError {
         }
     }
 
-    fn get_labels(&self) -> Vec<(Range<usize>, String)> {
+    fn get_labels(&self) -> Vec<DiagnosticLabel> {
         match self {
             ParserError::TrailingTokens(tokens, context) => {
-                vec![(
-                    self.get_primary_location(),
-                    match context {
-                        TrailingTokensContext::Class => {
-                            let first_token_kind = &tokens[0].kind;
-                            match first_token_kind {
-                                JasmTokenKind::DotSuper | JasmTokenKind::DotMethod => {
-                                    "must start on a new line".to_string()
-                                }
-                                JasmTokenKind::DotClass
-                                | JasmTokenKind::DotCode
-                                | JasmTokenKind::DotEnd => {
-                                    format!("directive '{}' is not allowed here", first_token_kind)
-                                }
-                                JasmTokenKind::Public | JasmTokenKind::Static => {
-                                    "access flags must appear before the class name".to_string()
-                                }
-                                JasmTokenKind::Integer(_) => {
-                                    "integer literals are not allowed here".to_string()
-                                }
-                                JasmTokenKind::Identifier(_) => "not allowed here".to_string(),
-                                JasmTokenKind::StringLiteral(_) => {
-                                    "string literals are not allowed here".to_string()
-                                }
-                                JasmTokenKind::MethodDescriptor(_) => {
-                                    "method descriptors are not allowed here".to_string()
-                                }
-                                _ => "not allowed here".to_string(),
-                            }
-                        }
-                        _ => "not allowed here".to_string(),
-                    },
-                )]
-            }
-            ParserError::ClassDirectiveExpected(_, token) => {
-                vec![(
-                    self.get_primary_location(),
-                    match token {
-                        JasmTokenKind::DotMethod | JasmTokenKind::DotSuper => {
-                            format!("'{}' is only allowed inside a class definition", token)
-                        }
-                        JasmTokenKind::DotCode => {
-                            format!("'{}' is only allowed inside a method definition", token)
-                        }
-                        JasmTokenKind::DotEnd => {
-                            format!("'{}' has no matching start directive", token)
-                        }
-
-                        _ => format!(
-                            "this {} must appear inside a class definition",
-                            token.as_string_token_type()
-                        ),
-                    },
-                )]
-            }
-            ParserError::IdentifierExpected(_, token, context) => {
-                vec![(
-                    self.get_primary_location(),
-                    match context {
-                        IdentifierContext::ClassName => match token {
-                            JasmTokenKind::Newline | JasmTokenKind::Eof => {
-                                "expected a class name here".to_string()
+                let msg = match context {
+                    TrailingTokensContext::Class => {
+                        let first_token_kind = &tokens[0].kind;
+                        match first_token_kind {
+                            JasmTokenKind::DotSuper | JasmTokenKind::DotMethod => {
+                                "must start on a new line".to_string()
                             }
                             JasmTokenKind::DotClass
-                            | JasmTokenKind::DotSuper
-                            | JasmTokenKind::DotMethod
                             | JasmTokenKind::DotCode
                             | JasmTokenKind::DotEnd => {
-                                "directives cannot be used as names".to_string()
+                                format!("directive '{}' is not allowed here", first_token_kind)
                             }
-                            _ => format!("found '{}' instead", token),
-                        },
-                        IdentifierContext::SuperName => "expected a superclass name".to_string(),
-                        IdentifierContext::MethodName => "expected a method name".to_string(),
-                        IdentifierContext::InstructionName => {
-                            "expected an instruction mnemonic".to_string()
+                            JasmTokenKind::Public | JasmTokenKind::Static => {
+                                "access flags must appear before the class name".to_string()
+                            }
+                            JasmTokenKind::Integer(_) => {
+                                "integer literals are not allowed here".to_string()
+                            }
+                            JasmTokenKind::Identifier(_) => "not allowed here".to_string(),
+                            JasmTokenKind::StringLiteral(_) => {
+                                "string literals are not allowed here".to_string()
+                            }
+                            JasmTokenKind::MethodDescriptor(_) => {
+                                "method descriptors are not allowed here".to_string()
+                            }
+                            _ => "not allowed here".to_string(),
                         }
-                        IdentifierContext::ClassNameInstructionArg => {
-                            "expected a class name".to_string()
-                        }
-                        IdentifierContext::MethodNameInstructionArg => {
-                            "expected a method name".to_string()
-                        }
-                        IdentifierContext::FieldNameInstructionArg => {
-                            "expected a field name".to_string()
-                        }
-                        IdentifierContext::FieldDescriptorInstructionArg => {
-                            "expected a field descriptor".to_string()
-                        }
-                    },
-                )]
+                    }
+                    _ => "not allowed here".to_string(),
+                };
+                vec![DiagnosticLabel::at(self.get_primary_location(), msg)]
             }
-            ParserError::MethodDescriptorExpected(_, token, _) => vec![(
+            ParserError::ClassDirectiveExpected(_, token) => {
+                let msg = match token {
+                    JasmTokenKind::DotMethod | JasmTokenKind::DotSuper => {
+                        format!("'{}' is only allowed inside a class definition", token)
+                    }
+                    JasmTokenKind::DotCode => {
+                        format!("'{}' is only allowed inside a method definition", token)
+                    }
+                    JasmTokenKind::DotEnd => {
+                        format!("'{}' has no matching start directive", token)
+                    }
+
+                    _ => format!(
+                        "this {} must appear inside a class definition",
+                        token.as_string_token_type()
+                    ),
+                };
+                vec![DiagnosticLabel::at(self.get_primary_location(), msg)]
+            }
+            ParserError::IdentifierExpected(_, token, context) => {
+                let msg = match context {
+                    IdentifierContext::ClassName => match token {
+                        JasmTokenKind::Newline | JasmTokenKind::Eof => {
+                            "expected a class name here".to_string()
+                        }
+                        JasmTokenKind::DotClass
+                        | JasmTokenKind::DotSuper
+                        | JasmTokenKind::DotMethod
+                        | JasmTokenKind::DotCode
+                        | JasmTokenKind::DotEnd => "directives cannot be used as names".to_string(),
+                        _ => format!("found '{}' instead", token),
+                    },
+                    IdentifierContext::SuperName => "expected a superclass name".to_string(),
+                    IdentifierContext::MethodName => "expected a method name".to_string(),
+                    IdentifierContext::InstructionName => {
+                        "expected an instruction mnemonic".to_string()
+                    }
+                    IdentifierContext::ClassNameInstructionArg => {
+                        "expected a class name".to_string()
+                    }
+                    IdentifierContext::MethodNameInstructionArg => {
+                        "expected a method name".to_string()
+                    }
+                    IdentifierContext::FieldNameInstructionArg => {
+                        "expected a field name".to_string()
+                    }
+                    IdentifierContext::FieldDescriptorInstructionArg => {
+                        "expected a field descriptor".to_string()
+                    }
+                };
+                vec![DiagnosticLabel::at(self.get_primary_location(), msg)]
+            }
+            ParserError::MethodDescriptorExpected(_, token, _) => vec![DiagnosticLabel::at(
                 self.get_primary_location(),
                 format!("expected a method descriptor, but found '{}'", token),
             )],
             ParserError::UnexpectedCodeDirectiveArg(_, token) => {
-                vec![(
+                vec![DiagnosticLabel::at(
                     self.get_primary_location(),
                     format!("'{}' is not a valid argument for '.code'", token),
                 )]
             }
-            ParserError::NonNegativeIntegerExpected(_, token, _) => vec![(
+            ParserError::NonNegativeIntegerExpected(_, token, _) => vec![DiagnosticLabel::at(
                 self.get_primary_location(),
                 format!("expected a non-negative integer, found '{}'", token),
             )],
@@ -265,20 +257,18 @@ impl ParserError {
                     }
                 }
 
-                vec![(
-                    self.get_primary_location(),
-                    if let Some(suggestion) = closest {
-                        format!("did you mean '{}'?", suggestion)
-                    } else {
-                        "unknown instruction".to_string()
-                    },
-                )]
+                let msg = if let Some(suggestion) = closest {
+                    format!("did you mean '{}' ?", suggestion)
+                } else {
+                    "unknown instruction".to_string()
+                };
+                vec![DiagnosticLabel::at(self.get_primary_location(), msg)]
             }
             ParserError::Internal(_) => vec![],
             ParserError::EmptyFile(_) => {
-                vec![(
+                vec![DiagnosticLabel::at(
                     self.get_primary_location(),
-                    "the file is empty or contains only comments".to_string(),
+                    "the file is empty or contains only comments",
                 )]
             }
             ParserError::MultipleDefinitions(context) => match context {
@@ -286,13 +276,13 @@ impl ParserError {
                     first_definition,
                     second_definition,
                 } => vec![
-                    (
+                    DiagnosticLabel::context(
                         first_definition.directive_span.as_range(),
-                        "original definition here".to_string(),
+                        "first .super definition here",
                     ),
-                    (
+                    DiagnosticLabel::at(
                         second_definition.directive_span.as_range(),
-                        "duplicate definition found here".to_string(),
+                        "duplicate definition here",
                     ),
                 ],
             },
@@ -450,11 +440,11 @@ impl ParserError {
             ),
             ParserError::EmptyFile(_) => Some("A Java assembly file must start with a '.class' directive.".to_string()),
             ParserError::Internal(_) => None,
-                ParserError::MultipleDefinitions(context) => match context {
+            ParserError::MultipleDefinitions(context) => match context {
                 MultipleDefinitionContext::SuperClass { .. } => Some(
-                "A class can only inherit from one superclass.\nIf you meant to implement multiple interfaces, use '.implements'.".to_string(),
-            ),
-        }
+                    "A class can only inherit from one superclass.\nIf you meant to implement multiple interfaces, use '.implements'.".to_string(),
+                ),
+            },
         }
     }
 
@@ -489,7 +479,7 @@ impl Diagnostic for ParserError {
         self.get_primary_location()
     }
 
-    fn labels(&self) -> Vec<(Range<usize>, String)> {
+    fn labels(&self) -> Vec<DiagnosticLabel> {
         self.get_labels()
     }
 

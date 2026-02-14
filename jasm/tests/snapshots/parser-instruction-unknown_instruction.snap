@@ -22,7 +22,7 @@ Error: unknown instruction 'invokespeciall'
    │
  7 │         invokespeciall java/lang/Object <init> ()V
    │         ───────┬──────  
-   │                ╰──────── did you mean 'invokespecial'?
+   │                ╰──────── did you mean 'invokespecial' ?
    │ 
    │ Note: Check the Java Virtual Machine specification for a list of valid opcodes.
 ───╯
