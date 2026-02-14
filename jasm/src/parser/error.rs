@@ -288,11 +288,11 @@ impl ParserError {
                 } => vec![
                     (
                         first_definition.directive_span.as_range(),
-                        "first .super definition here".to_string(),
+                        "original definition here".to_string(),
                     ),
                     (
                         second_definition.directive_span.as_range(),
-                        "second .super definition here".to_string(),
+                        "duplicate definition found here".to_string(),
                     ),
                 ],
             },
@@ -452,7 +452,7 @@ impl ParserError {
             ParserError::Internal(_) => None,
                 ParserError::MultipleDefinitions(context) => match context {
                 MultipleDefinitionContext::SuperClass { .. } => Some(
-                "A class can only have one .super directive to specify its superclass.".to_string(),
+                "A class can only inherit from one superclass.\nIf you meant to implement multiple interfaces, use '.implements'.".to_string(),
             ),
         }
         }
